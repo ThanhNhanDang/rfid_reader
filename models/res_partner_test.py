@@ -13,6 +13,7 @@ class ContactInherit(models.Model):
                 self.env.context.get('uuid_client', False),
                 'notification',
                 {
+                    "type":"write",
                     "partner_id": self.id,
                     "data": str(20500)  # Không vượt quá 24 ký tự
                 }
@@ -22,8 +23,9 @@ class ContactInherit(models.Model):
         if self.env.context.get('uuid_client', False):
             self.env['bus.bus'].sudo()._sendone(
                 self.env.context.get('uuid_client', False),
-                'read_card',
+                'notification',
                 {
+                    "type":"balance",
                 }
             )
 

@@ -19,14 +19,10 @@ patch(NavBar.prototype, {
     localStorage.setItem("uuid_client", this.uuidClient);
     console.log(this.env.services.bus_service);
     this.env.services.bus_service.addChannel(this.uuidClient);
-    this.env.services.bus_service.subscribe(
-      "notification",
-      this.openCarPopup.bind(this)
-    );
-    this.env.services.bus_service.subscribe(
-      "read_card",
-      this.openReadCard.bind(this)
-    );
+    this.env.services.bus_service.subscribe("notification", (event) => {
+      if (event.type == "write") this.openCarPopup(event);
+      else if (event.type == "balance") this.openReadCard(event);
+    });
     onWillStart(async () => {});
     onWillUnmount(() => {
       this.env.services.bus_service.deleteChannel(this.uuidClient);
@@ -62,7 +58,6 @@ patch(NavBar.prototype, {
         },
       }
     );
-    console.log(event.data);
   },
 
   async openReadCard(event) {
@@ -73,11 +68,9 @@ patch(NavBar.prototype, {
         type: "balance",
       },
       {
-        onClose: async () => {
-        },
+        onClose: async () => {},
       }
     );
-    console.log(event.data);
   },
   generateUniqueString() {
     return Date.now().toString(36) + Math.random().toString(36).substring(2);
