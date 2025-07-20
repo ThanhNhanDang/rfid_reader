@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates id="template" xml:space="preserve">
+    <t t-name="pos_card_payment.CardPaymentPopup">
+        <Dialog size="'sm'" title="popupTitle" contentClass="'popup card-payment-popup'">
+            <div class="title">
+                <t t-if="state.scanningState === 'waiting'">
+                    <span t-if="state.operationType === 'write'">Đặt thẻ để ghi dữ liệu</span>
+                    <span t-elif="state.operationType === 'balance'">Đặt thẻ để đọc số dư</span>
+                    <span t-elif="state.operationType === 'payment'">Đặt thẻ để thanh toán</span>
+                    <span t-else="">Đặt thẻ để đọc thông tin</span>
+                </t>
+                <t t-if="state.scanningState === 'scanning'">
+                    <span t-if="state.operationType === 'write'">Đang ghi dữ liệu...</span>
+                    <span t-elif="state.operationType === 'balance'">Đang đọc số dư...</span>
+                    <span t-elif="state.operationType === 'payment'">Đang xử lý thanh toán...</span>
+                    <span t-else="">Đang đọc thông tin thẻ...</span>
+                </t>
+                <t t-if="state.scanningState === 'success'">
+                    <span t-if="state.operationType === 'write'">Ghi thẻ thành công!</span>
+                    <span t-elif="state.operationType === 'balance'">Đọc số dư thành công!</span>
+                    <span t-elif="state.operationType === 'payment'">Thanh toán thành công!</span>
+                    <span t-else="">Đọc thẻ thành công!</span>
+                </t>
+                <t t-if="state.scanningState === 'error'">
+                    <span t-if="state.operationType === 'write'">Lỗi ghi thẻ</span>
+                    <span t-elif="state.operationType === 'balance'">Lỗi đọc số dư</span>
+                    <span t-elif="state.operationType === 'payment'">Lỗi thanh toán</span>
+                    <span t-else="">Lỗi đọc thẻ</span>
+                </t>
+            </div>
+
+            <!-- Card Operation Animation Area -->
+            <div class="card-scan-area">
+                <t t-if="state.scanningState === 'waiting'">
+                    <div class="card-reader-container">
+                        <div class="card-reader">
+                            <div class="reader-slot"></div>
+                            <div class="reader-body"></div>
+                        </div>
+                        <div class="hand-animation">
+                            <div class="hand">
+                                <div class="card-in-hand"></div>
+                            </div>
+                        </div>
+                        <div class="scan-instruction">
+                            <p t-esc="instructionText"/>
+                            <div class="pulse-ring"></div>
+                        </div>
+                        <!-- Show data to be written if write operation -->
+                        <div t-if="state.operationType === 'write' and props.data" class="write-data-info">
+                            <h5>Số tiền sẽ ghi:</h5>
+                            <p class="data-content"><t t-esc="props.data"/> VNĐ</p>
+                        </div>
+                    </div>
+                </t>
+
+                <t t-if="state.scanningState === 'scanning'">
+                    <div class="scanning-container">
+                        <div class="spinner"></div>
+                        <p t-if="state.operationType === 'write'">Đang ghi dữ liệu lên thẻ...</p>
+                        <p t-elif="state.operationType === 'balance'">Đang đọc số dư từ thẻ...</p>
+                        <p t-elif="state.operationType === 'payment'">Đang xử lý thanh toán...</p>
+                        <p t-else="">Đang đọc thông tin thẻ...</p>
+                    </div>
+                </t>
+
+                <t t-if="state.scanningState === 'success'">
+                    <div class="success-container">
+                        <div class="success-icon">
+                            <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="m9 12 2 2 4-4"/>
+                                <circle cx="12" cy="12" r="10"/>
+                            </svg>
+                        </div>
+                        
+                        <!-- Success message for write operation -->
+                        <t t-if="state.operationType === 'write'">
+                            <p>Đã nạp tiền vào thẻ thành công!</p>
+                            <div t-if="cardData and cardData.written_data" class="success-details">
+                                <p><strong>Số tiền đã ghi:</strong> <span t-esc="cardData.written_data"/> VNĐ</p> 
+                                <p><strong>Số tiền trong thẻ:</strong> <span t-esc="cardData.current_money"/> VNĐ</p>
+                                <p t-if="cardData.tid"><strong>TID thẻ:</strong> <span t-esc="cardData.tid"/></p>
+                            </div>
+                        </t>
+                        
+                        <!-- Success message for balance read operation -->
+                        <t t-elif="state.operationType === 'balance'">
+                            <p>Đã đọc số dư thành công!</p>
+                            <div t-if="cardData" class="success-details balance-info">
+                                <p><strong>Số dư trong thẻ:</strong> <span class="balance-amount" t-esc="cardData.balance"/> VNĐ</p>
+                                <p t-if="cardData.tid"><strong>TID thẻ:</strong> <span t-esc="cardData.tid"/></p>
+                                <div t-if="cardData.card_info" class="card-additional-info">
+                                    <p><strong>Thông tin thẻ:</strong> <span t-esc="cardData.card_info"/></p>
+                                </div>
+                            </div>
+                        </t>
+                        
+                        <!-- Success message for payment operation -->
+                        <t t-elif="state.operationType === 'payment'">
+                            <p>Thanh toán hoàn tất thành công!</p>
+                            <div t-if="cardData" class="success-details">
+                                <p><strong>Khách hàng:</strong> <span t-esc="cardData.partner_name"/></p>
+                                <p><strong>Số tiền:</strong> <span t-esc="cardData.amount"/> VNĐ</p>
+                                <p><strong>Số dư còn lại:</strong> <span t-esc="cardData.new_balance"/> VNĐ</p>
+                            </div>
+                        </t>
+
+                        <!-- Success message for card read operation -->
+                        <t t-else="">
+                            <p>Đã đọc thông tin thẻ thành công!</p>
+                            <div t-if="cardData" class="success-details">
+                                <p><strong>TID thẻ:</strong> <span t-esc="cardData.tid"/></p>
+                                <t t-if="cardData.partner_found">
+                                    <p><strong>Khách hàng:</strong> <span t-esc="cardData.partner_name"/></p>
+                                    <p><strong>Số dư tài khoản:</strong> <span t-esc="cardData.partner_balance"/> VNĐ</p>
+                                </t>
+                                <t t-else="">
+                                    <p class="text-warning"><strong>Chưa có thông tin khách hàng trong hệ thống</strong></p>
+                                </t>
+                            </div>
+                        </t>
+                    </div>
+                </t>
+
+                <t t-if="state.scanningState === 'error'">
+                    <div class="error-container">
+                        <div class="error-icon">
+                            <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"/>
+                                <line x1="15" y1="9" x2="9" y2="15"/>
+                                <line x1="9" y1="9" x2="15" y2="15"/>
+                            </svg>
+                        </div>
+                        <p t-esc="state.errorMessage"/>
+                        <button class="btn btn-primary mt-3" t-on-click="retryCardOperation">Thử lại</button>
+                    </div>
+                </t>
+            </div>
+
+            <!-- Info section - payment operations -->
+            <div t-if="state.operationType === 'payment'" class="info">
+                <div>
+                    <span>Số tiền: </span>
+                    <span class="amount" t-esc="props.amountTotal"/>
+                </div>
+                <div>
+                    <span>Tham chiếu đơn hàng: </span>
+                    <span t-esc="props.name"/>
+                </div>
+                <div>
+                    <span>Mã đơn hàng: </span>
+                    <span t-esc="props.orderName"/>
+                </div>
+            </div>
+
+            <!-- Info section for write operations -->
+            <div t-if="state.operationType === 'write'" class="info write-info">
+                <div>
+                    <span>Thao tác: </span>
+                    <span class="operation-type">Ghi dữ liệu lên thẻ</span>
+                </div>
+                <div t-if="props.data">
+                    <span>Dữ liệu: </span>
+                    <span class="write-data" t-esc="props.data"/>
+                </div>
+                <div t-if="props.partnerId">
+                    <span>ID Partner: </span>
+                    <span t-esc="props.partnerId"/>
+                </div>
+            </div>
+
+            <!-- Info section for balance read operations -->
+            <div t-if="state.operationType === 'balance'" class="info balance-info">
+                <div>
+                    <span>Thao tác: </span>
+                    <span class="operation-type">Đọc số dư từ thẻ</span>
+                </div>
+                <div class="balance-instruction">
+                    <i class="fa fa-info-circle"></i>
+                    <span>Chức năng này sẽ đọc trực tiếp số dư từ chip thẻ</span>
+                </div>
+            </div>
+
+            <!-- Info section for card read operations -->
+            <div t-if="state.operationType === 'read'" class="info read-info">
+                <div>
+                    <span>Thao tác: </span>
+                    <span class="operation-type">Đọc thông tin thẻ</span>
+                </div>
+                <div class="read-instruction">
+                    <i class="fa fa-info-circle"></i>
+                    <span>Chức năng này sẽ đọc TID và tìm thông tin khách hàng trong hệ thống</span>
+                </div>
+            </div>
+
+            <t t-set-slot="footer">
+                <div class="button-group">
+                    <button class="btn btn-lg btn-secondary cancel-btn" t-on-click="cancel">Hủy</button>
+                </div>
+            </t>
+        </Dialog>
+    </t>
+</templates>
