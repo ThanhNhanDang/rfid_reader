@@ -157,11 +157,11 @@
             <div t-if="state.operationType === 'write'" class="info write-info">
                 <div>
                     <span>Thao tác: </span>
-                    <span class="operation-type">Ghi dữ liệu lên thẻ</span>
+                    <span class="operation-type">Nạp tiền vào thẻ</span>
                 </div>
                 <div t-if="props.data">
                     <span>Dữ liệu: </span>
-                    <span class="write-data" t-esc="props.data"/>
+                    <span class="write-data"><t t-esc="props.data" /> VNĐ</span>
                 </div>
                 <div t-if="props.partnerId">
                     <span>ID Partner: </span>

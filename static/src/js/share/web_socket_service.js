@@ -12,20 +12,25 @@ export const webSocketService = {
     let onOpenCallback;
     let messageCallback;
     let isDisconnect = false;
+    let isConnecting = false; // Thêm flag để tránh multiple connections
 
     function connect() {
-      if (isDisconnect) return;
+      if (isDisconnect || isConnecting) return;
+      
+      isConnecting = true;
       const wsUri = "ws://localhost:62536";
       
       try {
         websocket = new WebSocket(wsUri);
       } catch (error) {
         console.error("WebSocket connection error:", error);
+        isConnecting = false;
         setTimeout(connect, 1000);
         return;
       }
 
       websocket.onopen = function () {
+        isConnecting = false;
         notification.add(_t("Kết nối thành công"), {
           type: "success",
         });
@@ -43,13 +48,19 @@ export const webSocketService = {
       };
 
       websocket.onclose = function (e) {
+        isConnecting = false;
         if (!isDisconnect) {
+          console.log("WebSocket connection closed, attempting to reconnect...");
           checkTimeout = setTimeout(connect, 1000);
         }
       };
 
       websocket.onerror = function (error) {
+        isConnecting = false;
         console.error("WebSocket error:", error);
+        if (websocket.readyState !== WebSocket.CLOSED) {
+          websocket.close();
+        }
       };
     }
 
@@ -61,6 +72,7 @@ export const webSocketService = {
       
       disconnect: () => {
         isDisconnect = true;
+        isConnecting = false;
         
         // Clear timeouts
         if (checkTimeout) {
@@ -97,8 +109,10 @@ export const webSocketService = {
       send: (message) => {
         if (websocket && websocket.readyState === WebSocket.OPEN) {
           websocket.send(message);
+          return true;
         } else {
-          console.warn("WebSocket is not open. Message not sent.");
+          console.warn("WebSocket is not open. Message not sent:", message);
+          return false;
         }
       },
       
@@ -116,6 +130,10 @@ export const webSocketService = {
       
       get isDisconnect() {
         return isDisconnect;
+      },
+      
+      get isConnecting() {
+        return isConnecting;
       }
     };
   },

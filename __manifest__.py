@@ -5,25 +5,32 @@
     "author": "Đặng Thành Nhân",
     'sequence': 0,
     'description': '',
-    'depends': ["point_of_sale", "stock", "product", "web", "bus"],
+    'depends': ["point_of_sale", "stock", "product", "web", "bus", "base"],
     'installable': True,
     'auto_install': True,
     'application': False,
     'data':
         [
-        "views/res_partner_test.xml",
+        "views/res_partner.xml",
     ],
     'assets': {
         'point_of_sale._assets_pos': [
             'rfid_reader/static/src/xml/pos/**/*',
             'rfid_reader/static/src/js/pos/**/*',
+            'rfid_reader/static/src/js/share/**/*',
+            'rfid_reader/static/src/xml/share/**/*',
+
         ],
         'web.assets_backend': [
+            'rfid_reader/static/src/js/share/**/*',
+            'rfid_reader/static/src/xml/share/**/*',
             'rfid_reader/static/src/js/backend/**/*',
             'rfid_reader/static/src/css/backend/**/*',
-            'rfid_reader/static/src/js/share/**/*',
             'rfid_reader/static/src/xml/backend/**/*',
         ],
+        'web.assets_common': [
+            'rfid_reader/static/src/share/**/*',
+        ]
     },
     'license': 'LGPL-3',
 }

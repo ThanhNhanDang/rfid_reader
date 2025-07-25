@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates id="template" xml:space="preserve">
+    <t t-name="pos_card_payment.CardPaymentPopup">
+        <Dialog size="'sm'" title="'Card Payment'" contentClass="'popup card-payment-popup'">
+            <div class="title">
+                <t t-if="state.scanningState === 'waiting'">Tap Card to Pay</t>
+                <t t-if="state.scanningState === 'scanning'">Processing...</t>
+                <t t-if="state.scanningState === 'success'">Payment Successful!</t>
+                <t t-if="state.scanningState === 'error'">Payment Error</t>
+            </div>
+
+            <!-- Card Scanning Animation Area -->
+            <div class="card-scan-area">
+                <t t-if="state.scanningState === 'waiting'">
+                    <div class="card-reader-container">
+                        <div class="card-reader">
+                            <div class="reader-slot"></div>
+                            <div class="reader-body"></div>
+                        </div>
+                        <div class="hand-animation">
+                            <div class="hand">
+                                <div class="card-in-hand"></div>
+                            </div>
+                        </div>
+                        <div class="scan-instruction">
+                            <p>Please tap your card on the reader</p>
+                            <div class="pulse-ring"></div>
+                        </div>
+                    </div>
+                </t>
+
+                <t t-if="state.scanningState === 'scanning'">
+                    <div class="scanning-container">
+                        <div class="spinner"></div>
+                        <p>Processing your payment...</p>
+                    </div>
+                </t>
+
+                <t t-if="state.scanningState === 'success'">
+                    <div class="success-container">
+                        <div class="success-icon">
+                            <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="m9 12 2 2 4-4"/>
+                                <circle cx="12" cy="12" r="10"/>
+                            </svg>
+                        </div>
+                        <p>Payment completed successfully!</p>
+                        <p t-if="cardData">Balance: <t t-esc="cardData.new_balance"/></p>
+                    </div>
+                </t>
+
+                <t t-if="state.scanningState === 'error'">
+                    <div class="error-container">
+                        <div class="error-icon">
+                            <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"/>
+                                <line x1="15" y1="9" x2="9" y2="15"/>
+                                <line x1="9" y1="9" x2="15" y2="15"/>
+                            </svg>
+                        </div>
+                        <p t-esc="state.errorMessage"/>
+                        <button class="btn btn-primary" t-on-click="retryCardScanning">Thử lại</button>
+                    </div>
+                </t>
+            </div>
+
+            <div class="info">
+                <div>
+                    <span>Amount: </span>
+                    <span class="amount" t-esc="props.amountTotal"/>
+                </div>
+                <div>
+                    <span>Order reference: </span>
+                    <span t-esc="props.name"/>
+                </div>
+                <div>
+                    <span>Order id: </span>
+                    <span t-esc="props.orderName"/>
+                </div>
+            </div>
+            <t t-set-slot="footer">
+                <div class="button cancel btn btn-lg" t-on-click="cancel">Hủy</div>
+            </t>
+        </Dialog>
+    </t>
+</templates>

@@ -6,7 +6,12 @@ _logger = logging.getLogger(__name__)
 
 class ContactInherit(models.Model):
     _inherit = 'res.partner'
-
+    card_tid = fields.Char(string="Mã thẻ")
+    money = fields.Monetary(
+        string="Tiền trong ví",
+        store=True,
+        currency_field='currency_id',
+    )
     def test_write_data(self):
         if self.env.context.get('uuid_client', False):
             self.env['bus.bus'].sudo()._sendone(
@@ -29,8 +34,19 @@ class ContactInherit(models.Model):
                 }
             )
 
+    def test_read_tid_data(self):
+        if self.env.context.get('uuid_client', False):
+            self.env['bus.bus'].sudo()._sendone(
+                self.env.context.get('uuid_client', False),
+                'notification',
+                {
+                    "type":"read",
+                }
+            )
+
     def done_write_data(self, current_money_in_card, add_money):
         if current_money_in_card and add_money:
+            # self.money = self.money + int(add_money)
             _logger.info("current_money_in_card: " +
                          current_money_in_card + " add_money: " + add_money + " " + self.display_name)
 

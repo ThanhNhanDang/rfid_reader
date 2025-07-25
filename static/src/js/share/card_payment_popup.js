@@ -33,6 +33,11 @@ export class CardPaymentPopup extends Component {
     this.processingTimeout = null;
     this.cardDetectionTimeout = null;
 
+    // Flag để theo dõi trạng thái operation
+    this.isOperationActive = false;
+    this.isComponentMounted = true;
+    this.lastOperationTime = 0; // Thêm để debounce
+
     onWillStart(async () => {
       // Đảm bảo disconnect trước khi connect mới
       this.webSocket.disconnect();
@@ -46,6 +51,7 @@ export class CardPaymentPopup extends Component {
     });
 
     onWillUnmount(() => {
+      this.isComponentMounted = false;
       this.cleanup();
       // Disconnect và clear tất cả callbacks
       this.webSocket.disconnect();
@@ -53,48 +59,83 @@ export class CardPaymentPopup extends Component {
   }
 
   handleWebSocketOpen() {
-    this.startCardOperation();
+    // Chỉ start operation nếu component vẫn mounted và chưa có operation nào đang chạy
+    if (this.isComponentMounted && !this.isOperationActive) {
+      console.log(1);
+      this.startCardOperation();
+    }
   }
 
   startCardOperation() {
-    if (this.webSocket && !this.webSocket.isDisconnect) {
-      if (this.state.operationType === "write") {
-        // Ghi dữ liệu lên thẻ
-        this.webSocket.send("ghi epc|" + this.props.data + "x");
-      } else if (this.state.operationType === "balance") {
-        // Đọc số dư từ thẻ
-        this.webSocket.send("doc so du");
-      } else {
-        // Đọc TID từ thẻ để thanh toán hoặc đọc thông tin
-        this.webSocket.send("quet the tid");
-      }
+    // Ngăn chặn việc start multiple operations
+    if (this.isOperationActive) {
+      console.log("Operation already active, skipping...");
+      return;
+    }
 
+    if (this.webSocket && !this.webSocket.isDisconnect) {
+      this.isOperationActive = true;
+
+      // Gửi lệnh đầu tiên
+      this.sendOperationCommand();
+
+      // Clear timeout cũ nếu có
+      this.clearScanTimeout();
+
+      // Tạo interval mới
       this.scanTimeout = setInterval(() => {
-        if (this.webSocket.isDisconnect) {
+        // Kiểm tra component vẫn mounted và WebSocket vẫn connected
+        if (!this.isComponentMounted || this.webSocket.isDisconnect) {
           this.clearScanTimeout();
+          this.isOperationActive = false;
           return;
         }
 
-        if (this.state.operationType === "write") {
-          // Ghi dữ liệu lên thẻ
-          this.webSocket.send("ghi epc|" + this.props.data + "x");
-        } else if (this.state.operationType === "balance") {
-          // Đọc số dư từ thẻ
-          this.webSocket.send("doc so du");
-        } else {
-          // Đọc TID từ thẻ để thanh toán hoặc đọc thông tin
-          this.webSocket.send("quet the tid");
+        // Kiểm tra trạng thái scanning để tránh gửi lệnh khi đang xử lý
+        if (
+          this.state.scanningState === "scanning" ||
+          this.state.scanningState === "success"
+        ) {
+          return;
         }
+
+        this.sendOperationCommand();
       }, 1000);
+    }
+  }
+
+  sendOperationCommand() {
+    if (!this.webSocket || this.webSocket.isDisconnect) {
+      return;
+    }
+
+    if (this.state.operationType === "write") {
+      // Ghi dữ liệu lên thẻ
+      this.webSocket.send("ghi epc|" + this.props.data + "x");
+    } else if (this.state.operationType === "balance") {
+      // Đọc số dư từ thẻ
+      this.webSocket.send("doc so du");
+    } else if (this.state.operationType === "payment") {
+      // Thanh toán
+      this.webSocket.send("thanh_toan|" + this.props.amountTotalInt + "x");
+    } else if (this.state.operationType === "read") {
+      // Đọc TID từ thẻ
+      this.webSocket.send("quet the tid");
     }
   }
 
   async handleWebSocketMessage(event) {
     try {
+      // Bỏ qua nếu component đã unmount
+      if (!this.isComponentMounted) {
+        return;
+      }
+
       if (
         event.data[0] == "g" ||
         event.data[0] == "q" ||
         event.data[0] == "G" ||
+        event.data[0] == "t" ||
         event.data[0] == "d"
       )
         return;
@@ -102,10 +143,31 @@ export class CardPaymentPopup extends Component {
       if (event.data) {
         const data = JSON.parse(event.data);
         console.log("Received WebSocket message:", data);
-
-        if (data.code === 200 || data.code === 201 || data.code === 204) {
+        if (data.code === 406) {
+          this.state.scanningState = "error";
+          this.state.errorMessage = "Không tìm thấy thẻ trong hệ thống";
+          return;
+        } else if (data.code === 407) {
+          this.state.scanningState = "error";
+          this.state.errorMessage = "Số dư không đủ để thanh toán";
+          this.notification.add(
+            _t("Số dư không đủ. Số dư hiện tại: %s", data.message),
+            { type: "warning" }
+          );
+          return;
+        } else if (
+          data.code === 200 ||
+          data.code === 201 ||
+          data.code === 204 ||
+          data === 205
+        ) {
+          // Dừng scanning khi nhận được response thành công
           this.clearScanTimeout();
+          this.isOperationActive = false;
           this.state.scanningState = "scanning";
+
+          // Disconnect WebSocket để tránh nhận thêm messages
+          this.webSocket.disconnect();
 
           if (this.state.operationType === "write") {
             await this.processWriteOperation(data);
@@ -117,12 +179,16 @@ export class CardPaymentPopup extends Component {
             await this.processCardRead(data.tid);
           }
         } else if (data.code === 500 || data.error) {
+          this.clearScanTimeout();
+          this.isOperationActive = false;
           this.state.scanningState = "error";
           this.state.errorMessage = data.message || "Lỗi không xác định";
         }
       }
     } catch (error) {
       console.error("Error parsing WebSocket message:", error);
+      this.clearScanTimeout();
+      this.isOperationActive = false;
       this.state.scanningState = "error";
       this.state.errorMessage = "Lỗi xử lý dữ liệu từ server";
     }
@@ -140,7 +206,11 @@ export class CardPaymentPopup extends Component {
         operation: "balance",
       };
       // Tự động đóng popup sau 3 giây
-      this.confirm();
+      setTimeout(() => {
+        if (this.isComponentMounted) {
+          this.confirm();
+        }
+      }, 3000);
     } catch (error) {
       console.error("Error processing balance read:", error);
       this.state.scanningState = "error";
@@ -181,7 +251,9 @@ export class CardPaymentPopup extends Component {
 
       // Tự động đóng popup sau 3 giây
       setTimeout(() => {
-        this.confirm();
+        if (this.isComponentMounted) {
+          this.confirm();
+        }
       }, 3000);
     } catch (error) {
       console.error("Error processing card read:", error);
@@ -203,7 +275,11 @@ export class CardPaymentPopup extends Component {
           tid: data.tid || null,
         };
 
-        this.confirm();
+        setTimeout(() => {
+          if (this.isComponentMounted) {
+            this.confirm();
+          }
+        }, 2000);
       } else {
         this.state.scanningState = "error";
         this.state.errorMessage = data.message || "Lỗi ghi dữ liệu lên thẻ";
@@ -265,7 +341,10 @@ export class CardPaymentPopup extends Component {
 
       // Tự động đóng popup sau 2 giây
       setTimeout(() => {
-        this.confirm();
+        if (this.isComponentMounted) {
+          this.confirm();
+          this.props.close();
+        }
       }, 2000);
     } catch (error) {
       console.error("Error processing payment:", error);
@@ -276,6 +355,7 @@ export class CardPaymentPopup extends Component {
 
   clearScanTimeout() {
     if (this.scanTimeout) {
+      console.log("Clearing scanTimeout interval");
       clearInterval(this.scanTimeout);
       this.scanTimeout = null;
     }
@@ -299,6 +379,8 @@ export class CardPaymentPopup extends Component {
   }
 
   cleanup() {
+    console.log("Cleanup called, clearing all operations");
+    this.isOperationActive = false;
     this.clearScanTimeout();
 
     if (this.processingTimeout) {
@@ -316,6 +398,10 @@ export class CardPaymentPopup extends Component {
   retryCardOperation() {
     this.state.scanningState = "waiting";
     this.state.errorMessage = "";
+
+    // Reset operation flag và debounce timer
+    this.isOperationActive = false;
+    this.lastOperationTime = 0;
 
     // Clear các timer cũ
     this.clearScanTimeout();

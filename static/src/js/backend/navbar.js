@@ -6,7 +6,7 @@ import { patch } from "@web/core/utils/patch";
 import { UserMenu } from "@web/webclient/user_menu/user_menu";
 import { onWillStart, useState, onMounted, onWillUnmount } from "@odoo/owl";
 import { user } from "@web/core/user";
-import { CardPaymentPopup } from "./card_payment_popup";
+import { CardPaymentPopup } from "../share/card_payment_popup";
 
 patch(NavBar.prototype, {
   setup() {
@@ -21,7 +21,9 @@ patch(NavBar.prototype, {
     this.env.services.bus_service.addChannel(this.uuidClient);
     this.env.services.bus_service.subscribe("notification", (event) => {
       if (event.type == "write") this.openCarPopup(event);
-      else if (event.type == "balance") this.openReadCard(event);
+      else {
+        this.openCard(event, event.type);
+      }
     });
     onWillStart(async () => {});
     onWillUnmount(() => {
@@ -60,18 +62,19 @@ patch(NavBar.prototype, {
     );
   },
 
-  async openReadCard(event) {
+  async openCard(event, type) {
     console.log("=============receive================", event);
     this.dialog.add(
       CardPaymentPopup,
       {
-        type: "balance",
+        type: type,
       },
       {
         onClose: async () => {},
       }
     );
   },
+
   generateUniqueString() {
     return Date.now().toString(36) + Math.random().toString(36).substring(2);
   },

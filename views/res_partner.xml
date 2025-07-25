@@ -8,7 +8,12 @@
                 <header>
                     <button name="test_write_data" type="object" string="Test Write Data" class="btn btn-primary" />
                     <button name="test_read_data" type="object" string="Test Read Data" class="btn btn-primary" />
+                    <button name="test_read_tid_data" type="object" string="Test Read TID Data" class="btn btn-primary" />
                 </header>
+            </xpath>
+            <xpath expr="//sheet/group/group/span[@name='address_name']" position="before">
+                <field name="card_tid"/>
+                <field name="money"/>
             </xpath>
         </field>
     </record>

@@ -1,1 +1,2 @@
-from . import res_partner_test
+from . import res_partner
+# from . import pos_payment_method
