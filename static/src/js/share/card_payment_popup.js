@@ -61,7 +61,6 @@ export class CardPaymentPopup extends Component {
   handleWebSocketOpen() {
     // Chỉ start operation nếu component vẫn mounted và chưa có operation nào đang chạy
     if (this.isComponentMounted && !this.isOperationActive) {
-      console.log(1);
       this.startCardOperation();
     }
   }

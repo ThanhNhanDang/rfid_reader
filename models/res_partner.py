@@ -46,7 +46,7 @@ class ContactInherit(models.Model):
 
     def done_write_data(self, current_money_in_card, add_money):
         if current_money_in_card and add_money:
-            # self.money = self.money + int(add_money)
+            self.money = self.money + int(add_money)
             _logger.info("current_money_in_card: " +
                          current_money_in_card + " add_money: " + add_money + " " + self.display_name)
 

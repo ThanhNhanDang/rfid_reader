@@ -39,13 +39,13 @@ patch(NavBar.prototype, {
         data: event.data,
         onPaymentResult: async (result) => {
           if (result && result.success) {
-            console.log("Ghi thẻ thành công:", result);
             await this.orm.call(
               "res.partner",
               "done_write_data",
               [event.partner_id, result.current_money, result.written_data],
               {}
             );
+            this.env.services.action.loadState()
           }
         },
       },
