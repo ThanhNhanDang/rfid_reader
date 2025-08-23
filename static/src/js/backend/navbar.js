@@ -45,7 +45,7 @@ patch(NavBar.prototype, {
               [event.partner_id, result.current_money, result.written_data],
               {}
             );
-            this.env.services.action.loadState()
+            this.env.services.action.loadState();
           }
         },
       },
@@ -64,15 +64,9 @@ patch(NavBar.prototype, {
 
   async openCard(event, type) {
     console.log("=============receive================", event);
-    this.dialog.add(
-      CardPaymentPopup,
-      {
-        type: type,
-      },
-      {
-        onClose: async () => {},
-      }
-    );
+    this.dialog.add(CardPaymentPopup, event, {
+      onClose: async () => {},
+    });
   },
 
   generateUniqueString() {

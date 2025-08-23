@@ -7,24 +7,28 @@
                     <span t-if="state.operationType === 'write'">Đặt thẻ để ghi dữ liệu</span>
                     <span t-elif="state.operationType === 'balance'">Đặt thẻ để đọc số dư</span>
                     <span t-elif="state.operationType === 'payment'">Đặt thẻ để thanh toán</span>
+                    <span t-elif="state.operationType === 'generate_cards'">Đặt thẻ để cấp thẻ mới</span>
                     <span t-else="">Đặt thẻ để đọc thông tin</span>
                 </t>
                 <t t-if="state.scanningState === 'scanning'">
                     <span t-if="state.operationType === 'write'">Đang ghi dữ liệu...</span>
                     <span t-elif="state.operationType === 'balance'">Đang đọc số dư...</span>
                     <span t-elif="state.operationType === 'payment'">Đang xử lý thanh toán...</span>
+                    <span t-elif="state.operationType === 'generate_cards'">Đang cấp thẻ mới...</span>
                     <span t-else="">Đang đọc thông tin thẻ...</span>
                 </t>
                 <t t-if="state.scanningState === 'success'">
                     <span t-if="state.operationType === 'write'">Ghi thẻ thành công!</span>
                     <span t-elif="state.operationType === 'balance'">Đọc số dư thành công!</span>
                     <span t-elif="state.operationType === 'payment'">Thanh toán thành công!</span>
+                    <span t-elif="state.operationType === 'generate_cards'">Cấp thẻ thành công!</span>
                     <span t-else="">Đọc thẻ thành công!</span>
                 </t>
                 <t t-if="state.scanningState === 'error'">
                     <span t-if="state.operationType === 'write'">Lỗi ghi thẻ</span>
                     <span t-elif="state.operationType === 'balance'">Lỗi đọc số dư</span>
                     <span t-elif="state.operationType === 'payment'">Lỗi thanh toán</span>
+                    <span t-elif="state.operationType === 'generate_cards'">Lỗi cấp thẻ</span>
                     <span t-else="">Lỗi đọc thẻ</span>
                 </t>
             </div>
@@ -51,6 +55,11 @@
                             <h5>Số tiền sẽ ghi:</h5>
                             <p class="data-content"><t t-esc="props.data"/> VNĐ</p>
                         </div>
+                        <!-- Show receipt info if generate_cards operation -->
+                        <div t-if="state.operationType === 'generate_cards' and props.receipt_id" class="generate-cards-info">
+                            <h5>Phiếu nhập kho:</h5>
+                            <p class="data-content"><t t-esc="props.receipt_name"/></p>
+                        </div>
                     </div>
                 </t>
 
@@ -60,6 +69,7 @@
                         <p t-if="state.operationType === 'write'">Đang ghi dữ liệu lên thẻ...</p>
                         <p t-elif="state.operationType === 'balance'">Đang đọc số dư từ thẻ...</p>
                         <p t-elif="state.operationType === 'payment'">Đang xử lý thanh toán...</p>
+                        <p t-elif="state.operationType === 'generate_cards'">Đang cấp thẻ mới...</p>
                         <p t-else="">Đang đọc thông tin thẻ...</p>
                     </div>
                 </t>
@@ -102,6 +112,14 @@
                                 <p><strong>Khách hàng:</strong> <span t-esc="cardData.partner_name"/></p>
                                 <p><strong>Số tiền:</strong> <span t-esc="cardData.amount"/> VNĐ</p>
                                 <p><strong>Số dư còn lại:</strong> <span t-esc="cardData.new_balance"/> VNĐ</p>
+                            </div>
+                        </t>
+
+                        <!-- Success message for generate_cards operation -->
+                        <t t-elif="state.operationType === 'generate_cards'">
+                            <p>Đã cấp thẻ thành công!</p>
+                            <div t-if="cardData" class="success-details">
+                                <p><strong>Phiếu nhập kho:</strong> <span t-esc="props.receipt_name"/></p>
                             </div>
                         </t>
 
@@ -163,10 +181,6 @@
                     <span>Dữ liệu: </span>
                     <span class="write-data"><t t-esc="props.data" /> VNĐ</span>
                 </div>
-                <div t-if="props.partnerId">
-                    <span>ID Partner: </span>
-                    <span t-esc="props.partnerId"/>
-                </div>
             </div>
 
             <!-- Info section for balance read operations -->
@@ -181,6 +195,18 @@
                 </div>
             </div>
 
+            <!-- Info section for generate_cards operations -->
+            <div t-if="state.operationType === 'generate_cards'" class="info generate-cards-info">
+                <div>
+                    <span>Thao tác: </span>
+                    <span class="operation-type">Cấp thẻ mới</span>
+                </div>
+                <div t-if="props.receipt_id">
+                    <span>Phiếu nhập kho: </span>
+                    <span class="receipt-name"><t t-esc="props.receipt_name"/></span>
+                </div>
+            </div>
+
             <!-- Info section for card read operations -->
             <div t-if="state.operationType === 'read'" class="info read-info">
                 <div>
@@ -189,7 +215,7 @@
                 </div>
                 <div class="read-instruction">
                     <i class="fa fa-info-circle"></i>
-                    <span>Chức năng này sẽ đọc TID và tìm thông tin khách hàng trong hệ thống</span>
+                    <span>Chức năng này sẽ đọc TID</span>
                 </div>
             </div>
 

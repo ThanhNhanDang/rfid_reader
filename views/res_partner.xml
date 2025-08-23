@@ -13,7 +13,7 @@
             </xpath>
             <xpath expr="//sheet/group/group/span[@name='address_name']" position="before">
                 <field name="card_tid"/>
-                <field name="money"/>
+                <!-- <field name="money"/> -->
             </xpath>
         </field>
     </record>

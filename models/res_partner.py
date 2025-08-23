@@ -1,6 +1,6 @@
 import logging
 
-from odoo import fields, models, api
+from odoo import fields, models, api,_
 _logger = logging.getLogger(__name__)
 
 
@@ -13,16 +13,14 @@ class ContactInherit(models.Model):
         currency_field='currency_id',
     )
     def test_write_data(self):
-        if self.env.context.get('uuid_client', False):
-            self.env['bus.bus'].sudo()._sendone(
-                self.env.context.get('uuid_client', False),
-                'notification',
-                {
-                    "type":"write",
-                    "partner_id": self.id,
-                    "data": str(20500)  # Không vượt quá 24 ký tự
-                }
-            )
+        return {
+            'name': _('Nạp tiền'),
+            'type': 'ir.actions.act_window',
+            'res_model': 'pos.input.money.wizard',
+            'view_mode': 'form',
+            'target': 'new',
+            'context':{'default_partner_id':self.id}
+        }
 
     def test_read_data(self):
         if self.env.context.get('uuid_client', False):

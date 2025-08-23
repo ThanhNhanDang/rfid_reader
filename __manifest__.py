@@ -11,7 +11,9 @@
     'application': False,
     'data':
         [
+        'security/ir.model.access.csv',
         "views/res_partner.xml",
+        "views/pos_input_money_wizard.xml",
         "views/pos_order.xml",
     ],
     'assets': {

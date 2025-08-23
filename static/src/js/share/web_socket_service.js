@@ -34,7 +34,6 @@ export const webSocketService = {
         notification.add(_t("Kết nối thành công"), {
           type: "success",
         });
-        websocket.send("GetConnect");
         
         if (onOpenCallback) {
           onOpenCallback();

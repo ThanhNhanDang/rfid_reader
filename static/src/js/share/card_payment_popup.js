@@ -11,10 +11,12 @@ import { useService } from "@web/core/utils/hooks";
 import { _t } from "@web/core/l10n/translation";
 
 export class CardPaymentPopup extends Component {
+
   static template = "pos_card_payment.CardPaymentPopup";
   static components = { Dialog };
 
   setup() {
+    this.action = useService("action");
     super.setup();
     this.webSocket = useService("webSocket");
     this.orm = useService("orm");
@@ -25,7 +27,7 @@ export class CardPaymentPopup extends Component {
     this.state = useState({
       scanningState: "waiting", // 'waiting', 'scanning', 'success', 'error'
       errorMessage: "",
-      operationType: this.props.type || "read", // 'read', 'write', 'payment', 'balance'
+      operationType: this.props.type || "read", // 'read', 'write', 'payment', 'balance', 'generate_cards'
     });
 
     // WebSocket và timeout management
@@ -74,7 +76,6 @@ export class CardPaymentPopup extends Component {
 
     if (this.webSocket && !this.webSocket.isDisconnect) {
       this.isOperationActive = true;
-
       // Gửi lệnh đầu tiên
       this.sendOperationCommand();
 
@@ -82,24 +83,25 @@ export class CardPaymentPopup extends Component {
       this.clearScanTimeout();
 
       // Tạo interval mới
-      this.scanTimeout = setInterval(() => {
-        // Kiểm tra component vẫn mounted và WebSocket vẫn connected
-        if (!this.isComponentMounted || this.webSocket.isDisconnect) {
-          this.clearScanTimeout();
-          this.isOperationActive = false;
-          return;
-        }
+      if (this.state.operationType !== "generate_cards")
+        this.scanTimeout = setInterval(() => {
+          // Kiểm tra component vẫn mounted và WebSocket vẫn connected
+          if (!this.isComponentMounted || this.webSocket.isDisconnect) {
+            this.clearScanTimeout();
+            this.isOperationActive = false;
+            return;
+          }
 
-        // Kiểm tra trạng thái scanning để tránh gửi lệnh khi đang xử lý
-        if (
-          this.state.scanningState === "scanning" ||
-          this.state.scanningState === "success"
-        ) {
-          return;
-        }
+          // Kiểm tra trạng thái scanning để tránh gửi lệnh khi đang xử lý
+          if (
+            this.state.scanningState === "scanning" ||
+            this.state.scanningState === "success"
+          ) {
+            return;
+          }
 
-        this.sendOperationCommand();
-      }, 1000);
+          this.sendOperationCommand();
+        }, 1000);
     }
   }
 
@@ -117,6 +119,9 @@ export class CardPaymentPopup extends Component {
     } else if (this.state.operationType === "payment") {
       // Thanh toán
       this.webSocket.send("thanh_toan|" + this.props.amountTotalInt + "x");
+    } else if (this.state.operationType === "generate_cards") {
+      // Cấp thẻ mới
+      this.webSocket.send("cap the|" + this.props.quantity);
     } else if (this.state.operationType === "read") {
       // Đọc TID từ thẻ
       this.webSocket.send("quet the tid");
@@ -132,6 +137,7 @@ export class CardPaymentPopup extends Component {
 
       if (
         event.data[0] == "g" ||
+        event.data[0] == "c" ||
         event.data[0] == "q" ||
         event.data[0] == "G" ||
         event.data[0] == "t" ||
@@ -154,8 +160,20 @@ export class CardPaymentPopup extends Component {
             { type: "warning" }
           );
           return;
+        }
+        
+        else if (data.code === 408) {
+          this.state.scanningState = "error";
+          this.state.errorMessage = "Số thẻ đọc được LỚN hơn [" + this.props.quantity+ "], vui lòng thử lại, Số thẻ hiện tại: " + data.message;
+          return;
+        } else if (data.code === 409) {
+          this.state.scanningState = "error";
+          this.state.errorMessage = "Số thẻ đọc được NHỎ hơn [" + this.props.quantity+ "], vui lòng thử lại, Số thẻ hiện tại: " + data.message;
+          return;
         } else if (
           data.code === 200 ||
+          data.code === 206 ||
+          data.code === 207 ||
           data.code === 201 ||
           data.code === 204 ||
           data === 205
@@ -173,7 +191,9 @@ export class CardPaymentPopup extends Component {
           } else if (this.state.operationType === "balance") {
             await this.processBalanceRead(data);
           } else if (this.state.operationType === "payment" && data.tid) {
-            await this.processPayment(data.tid);
+            await this.processPayment(data.tid, data.message);
+          } else if (this.state.operationType === "generate_cards") {
+            await this.processGenerateCards(data.message);
           } else if (data.tid) {
             await this.processCardRead(data.tid);
           }
@@ -190,6 +210,42 @@ export class CardPaymentPopup extends Component {
       this.isOperationActive = false;
       this.state.scanningState = "error";
       this.state.errorMessage = "Lỗi xử lý dữ liệu từ server";
+    }
+  }
+
+  async processGenerateCards(message) {
+    try {
+      // Create a new stock.receipt.card record
+      const res =  await this.orm.call(
+        this.props.model,
+        "callback_generate_cards",
+        [this.props.id, JSON.parse(message)],
+        {}
+      );
+      if (res != "1"){
+        this.state.scanningState = "error";
+        this.state.errorMessage = "Lỗi: " + res;
+        return;
+      }
+
+      this.state.scanningState = "success";
+      this.cardData = {
+        success: true,
+        operation: "generate_cards",
+      };
+
+      // Tự động đóng popup sau 2 giây
+      setTimeout(() => {
+        if (this.isComponentMounted) {
+          this.action.loadState();
+          this.confirm();
+          this.props.close();
+        }
+      }, 2000);
+    } catch (error) {
+      console.error("Error processing card generation:", error);
+      this.state.scanningState = "error";
+      this.state.errorMessage = "Lỗi cấp thẻ mới";
     }
   }
 
@@ -219,34 +275,13 @@ export class CardPaymentPopup extends Component {
 
   async processCardRead(tid) {
     try {
-      // Tìm kiếm partner theo card_tid
-      const partners = await this.orm.searchRead(
-        "res.partner",
-        [["card_tid", "=", tid]],
-        ["id", "name", "money", "currency_id"]
-      );
-
       this.state.scanningState = "success";
-
-      if (partners.length === 0) {
-        this.cardData = {
-          success: true,
-          tid: tid,
-          partner_found: false,
-          operation: "read",
-        };
-      } else {
-        const partner = partners[0];
-        this.cardData = {
-          success: true,
-          partner_id: partner.id,
-          partner_name: partner.name,
-          partner_balance: partner.money,
-          tid: tid,
-          partner_found: true,
-          operation: "read",
-        };
-      }
+      this.cardData = {
+        success: true,
+        tid: tid,
+        partner_found: false,
+        operation: "read",
+      };
 
       // Tự động đóng popup sau 3 giây
       setTimeout(() => {
@@ -290,51 +325,18 @@ export class CardPaymentPopup extends Component {
     }
   }
 
-  async processPayment(tid) {
+  async processPayment(tid, message) {
     try {
-      // Tìm kiếm partner theo card_tid
-      const partners = await this.orm.searchRead(
-        "res.partner",
-        [["card_tid", "=", tid]],
-        ["id", "name", "money", "currency_id"]
-      );
-
-      if (partners.length === 0) {
-        this.state.scanningState = "error";
-        this.state.errorMessage = "Không tìm thấy thẻ trong hệ thống";
-        return;
-      }
-
-      const partner = partners[0];
       const paymentAmount = this.props.amountTotalInt;
-
-      // Kiểm tra số dư
-      if (partner.money < paymentAmount) {
-        this.state.scanningState = "error";
-        this.state.errorMessage = "Số dư không đủ để thanh toán";
-        this.notification.add(
-          _t("Số dư không đủ. Số dư hiện tại: %s", partner.money),
-          { type: "warning" }
-        );
-        return;
-      }
-
-      // Trừ tiền
-      const newBalance = partner.money - paymentAmount;
-      await this.orm.write("res.partner", [partner.id], {
-        money: newBalance,
-      });
 
       // Thanh toán thành công
       this.state.scanningState = "success";
       this.cardData = {
         success: true,
-        partner_id: partner.id,
-        partner_name: partner.name,
         tid: tid,
         amount: paymentAmount,
-        old_balance: partner.money,
-        new_balance: newBalance,
+        old_balance: message.split(",")[1],
+        new_balance: message.split(",")[0],
         operation: "payment",
       };
 
@@ -425,6 +427,8 @@ export class CardPaymentPopup extends Component {
         return "Đọc số dư thẻ";
       case "payment":
         return "Thanh toán bằng thẻ";
+      case "generate_cards":
+        return "Cấp thẻ mới";
       default:
         return "Đọc thông tin thẻ";
     }
@@ -438,6 +442,8 @@ export class CardPaymentPopup extends Component {
         return "Đặt thẻ lên đầu đọc để đọc số dư";
       case "payment":
         return "Đặt thẻ lên đầu đọc để thanh toán";
+      case "generate_cards":
+        return "Đặt thẻ lên đầu đọc để cấp thẻ mới";
       default:
         return "Đặt thẻ lên đầu đọc để đọc thông tin";
     }
