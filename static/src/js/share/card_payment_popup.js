@@ -11,7 +11,6 @@ import { useService } from "@web/core/utils/hooks";
 import { _t } from "@web/core/l10n/translation";
 
 export class CardPaymentPopup extends Component {
-
   static template = "pos_card_payment.CardPaymentPopup";
   static components = { Dialog };
 
@@ -83,7 +82,10 @@ export class CardPaymentPopup extends Component {
       this.clearScanTimeout();
 
       // Tạo interval mới
-      if (this.state.operationType !== "generate_cards")
+      if (
+        this.state.operationType !== "generate_cards" &&
+        this.state.operationType !== "scan_cards"
+      )
         this.scanTimeout = setInterval(() => {
           // Kiểm tra component vẫn mounted và WebSocket vẫn connected
           if (!this.isComponentMounted || this.webSocket.isDisconnect) {
@@ -122,6 +124,9 @@ export class CardPaymentPopup extends Component {
     } else if (this.state.operationType === "generate_cards") {
       // Cấp thẻ mới
       this.webSocket.send("cap the|" + this.props.quantity);
+    } else if (this.state.operationType === "scan_cards") {
+      // quét thẻ
+      this.webSocket.send("quet nhieu the");
     } else if (this.state.operationType === "read") {
       // Đọc TID từ thẻ
       this.webSocket.send("quet the tid");
@@ -160,20 +165,27 @@ export class CardPaymentPopup extends Component {
             { type: "warning" }
           );
           return;
-        }
-        
-        else if (data.code === 408) {
+        } else if (data.code === 408) {
           this.state.scanningState = "error";
-          this.state.errorMessage = "Số thẻ đọc được LỚN hơn [" + this.props.quantity+ "], vui lòng thử lại, Số thẻ hiện tại: " + data.message;
+          this.state.errorMessage =
+            "Số thẻ đọc được LỚN hơn [" +
+            this.props.quantity +
+            "], vui lòng thử lại, Số thẻ hiện tại: " +
+            data.message;
           return;
         } else if (data.code === 409) {
           this.state.scanningState = "error";
-          this.state.errorMessage = "Số thẻ đọc được NHỎ hơn [" + this.props.quantity+ "], vui lòng thử lại, Số thẻ hiện tại: " + data.message;
+          this.state.errorMessage =
+            "Số thẻ đọc được NHỎ hơn [" +
+            this.props.quantity +
+            "], vui lòng thử lại, Số thẻ hiện tại: " +
+            data.message;
           return;
         } else if (
           data.code === 200 ||
           data.code === 206 ||
           data.code === 207 ||
+          data.code === 208 ||
           data.code === 201 ||
           data.code === 204 ||
           data === 205
@@ -194,6 +206,8 @@ export class CardPaymentPopup extends Component {
             await this.processPayment(data.tid, data.message);
           } else if (this.state.operationType === "generate_cards") {
             await this.processGenerateCards(data.message);
+          } else if (this.state.operationType === "scan_cards") {
+            await this.processScanCards(data.message);
           } else if (data.tid) {
             await this.processCardRead(data.tid);
           }
@@ -213,16 +227,52 @@ export class CardPaymentPopup extends Component {
     }
   }
 
+  async processScanCards(message) {
+    try {
+      // Create a new stock.receipt.card record
+      const res = await this.orm.call(
+        this.props.model,
+        "callback_scan_cards",
+        [this.props.id, JSON.parse(message)],
+        {}
+      );
+      if (res != "1") {
+        this.state.scanningState = "error";
+        this.state.errorMessage = "Lỗi: " + res;
+        return;
+      }
+
+      this.state.scanningState = "success";
+      this.cardData = {
+        success: true,
+        operation: "scan_cards",
+      };
+
+      // Tự động đóng popup sau 2 giây
+      setTimeout(() => {
+        if (this.isComponentMounted) {
+          this.action.loadState();
+          this.confirm();
+          this.props.close();
+        }
+      }, 2000);
+    } catch (error) {
+      console.error("Error processing card generation:", error);
+      this.state.scanningState = "error";
+      this.state.errorMessage = "Lỗi Quét Thẻ";
+    }
+  }
+
   async processGenerateCards(message) {
     try {
       // Create a new stock.receipt.card record
-      const res =  await this.orm.call(
+      const res = await this.orm.call(
         this.props.model,
         "callback_generate_cards",
         [this.props.id, JSON.parse(message)],
         {}
       );
-      if (res != "1"){
+      if (res != "1") {
         this.state.scanningState = "error";
         this.state.errorMessage = "Lỗi: " + res;
         return;
@@ -429,6 +479,8 @@ export class CardPaymentPopup extends Component {
         return "Thanh toán bằng thẻ";
       case "generate_cards":
         return "Cấp thẻ mới";
+      case "scan_cards":
+        return "Quét sản phẩm";
       default:
         return "Đọc thông tin thẻ";
     }
@@ -444,6 +496,8 @@ export class CardPaymentPopup extends Component {
         return "Đặt thẻ lên đầu đọc để thanh toán";
       case "generate_cards":
         return "Đặt thẻ lên đầu đọc để cấp thẻ mới";
+      case "scan_cards":
+        return "Đặt sản phẩm lên đầu đọc";
       default:
         return "Đặt thẻ lên đầu đọc để đọc thông tin";
     }

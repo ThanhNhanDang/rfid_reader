@@ -82,7 +82,7 @@
                                 <circle cx="12" cy="12" r="10"/>
                             </svg>
                         </div>
-                        
+
                         <!-- Success message for write operation -->
                         <t t-if="state.operationType === 'write'">
                             <p>Đã nạp tiền vào thẻ thành công!</p>
@@ -92,7 +92,7 @@
                                 <p t-if="cardData.tid"><strong>TID thẻ:</strong> <span t-esc="cardData.tid"/></p>
                             </div>
                         </t>
-                        
+
                         <!-- Success message for balance read operation -->
                         <t t-elif="state.operationType === 'balance'">
                             <p>Đã đọc số dư thành công!</p>
@@ -104,7 +104,7 @@
                                 </div>
                             </div>
                         </t>
-                        
+
                         <!-- Success message for payment operation -->
                         <t t-elif="state.operationType === 'payment'">
                             <p>Thanh toán hoàn tất thành công!</p>
@@ -120,6 +120,13 @@
                             <p>Đã cấp thẻ thành công!</p>
                             <div t-if="cardData" class="success-details">
                                 <p><strong>Phiếu nhập kho:</strong> <span t-esc="props.receipt_name"/></p>
+                            </div>
+                        </t>
+                        <t t-elif="state.operationType === 'scan_cards'">
+                            <p>Thành công!</p>
+                            <div t-if="cardData" class="success-details">
+                                <p t-if="props.receipt_type=='outgoing'"><strong>Phiếu xuất kho:</strong> <span t-esc="props.receipt_name"/></p>
+                                <p t-else=""><strong>Phiếu nhập kho:</strong> <span t-esc="props.receipt_name"/></p>
                             </div>
                         </t>
 

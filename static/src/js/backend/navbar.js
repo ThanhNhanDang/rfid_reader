@@ -11,20 +11,23 @@ import { CardPaymentPopup } from "../share/card_payment_popup";
 patch(NavBar.prototype, {
   setup() {
     super.setup(...arguments);
-
+    
     this.dialog = useService("dialog");
     this.orm = useService("orm");
+    this.company = useService("company");
 
     this.uuidClient = this.generateUniqueString();
     localStorage.setItem("uuid_client", this.uuidClient);
-    console.log(this.env.services.bus_service);
     this.env.services.bus_service.addChannel(this.uuidClient);
     this.env.services.bus_service.subscribe("notification", (event) => {
+      console.log("=============receive================", event);
       if (event.type == "write") this.openCarPopup(event);
       else {
         this.openCard(event, event.type);
       }
     });
+
+    
     onWillStart(async () => {});
     onWillUnmount(() => {
       this.env.services.bus_service.deleteChannel(this.uuidClient);

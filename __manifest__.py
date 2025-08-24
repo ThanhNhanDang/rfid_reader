@@ -30,6 +30,8 @@
             'rfid_reader/static/src/js/backend/**/*',
             'rfid_reader/static/src/css/backend/**/*',
             'rfid_reader/static/src/xml/backend/**/*',
+            'rfid_reader/static/audio/*.wav',
+            
         ],
         'web.assets_common': [
             'rfid_reader/static/src/share/**/*',
